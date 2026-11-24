@@ -20,7 +20,7 @@ Get the latest version from the [Releases](../../releases) page:
 - Windows: `EntryNav2-Installer-windows-x64.exe`
 - macOS: `EntryNav2-Installer-macos-apple-silicon.zip` or `EntryNav2-Installer-macos-intel.zip`
 
-On macOS the app is not signed. The first time you open it, right-click it and choose **Open**.
+(not signed by Apple: open it once, then System Settings › Privacy & Security › Open Anyway)
 
 ## Requirements
 
