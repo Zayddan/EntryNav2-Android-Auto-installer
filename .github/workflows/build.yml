@@ -1,0 +1,139 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: System libraries (GTK for the file picker, OpenSSL for SSH)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libssl-dev libxkbcommon-dev pkg-config
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: checks
+
+      - name: Clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Unit tests
+        run: cargo test --locked
+
+      - name: Shell scripts (syntax and sandbox simulation)
+        run: |
+          SCRIPT_DUMP_DIR="$PWD/target/scripts" cargo test --locked dump_scripts -- --ignored
+          for f in target/scripts/*.sh; do sh -n "$f"; done
+          sh tests/scripts/sim.sh "$PWD/target/scripts" "$PWD/target/sim"
+
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            test: true
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            test: true
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            test: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Tests
+        if: matrix.test
+        run: cargo test --locked --target ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --locked --release --target ${{ matrix.target }}
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/entrynav2-installer.exe dist/EntryNav2-Installer-windows-x64.exe
+
+      - name: Package (macOS .app)
+        if: runner.os == 'macOS'
+        run: |
+          case "${{ matrix.target }}" in
+            aarch64-*) ARCH=apple-silicon ;;
+            *) ARCH=intel ;;
+          esac
+          VERSION=$(grep -m1 '^version' Cargo.toml | cut -d '"' -f2)
+          APP="dist/Android Auto Installer.app"
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          cp target/${{ matrix.target }}/release/entrynav2-installer "$APP/Contents/MacOS/"
+          SET=AppIcon.iconset; mkdir -p "$SET"
+          for s in 16 32 128 256 512; do
+            cp "assets/icon-$s.png" "$SET/icon_${s}x${s}.png"
+            cp "assets/icon-$((s * 2)).png" "$SET/icon_${s}x${s}@2x.png"
+          done
+          iconutil -c icns "$SET" -o "$APP/Contents/Resources/AppIcon.icns"
+          cat > "$APP/Contents/Info.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>CFBundleName</key><string>Android Auto Installer</string>
+            <key>CFBundleDisplayName</key><string>Android Auto Installer for EntryNav2</string>
+            <key>CFBundleIdentifier</key><string>io.github.entrynav2.installer</string>
+            <key>CFBundleExecutable</key><string>entrynav2-installer</string>
+            <key>CFBundleIconFile</key><string>AppIcon</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>${VERSION}</string>
+            <key>CFBundleVersion</key><string>${VERSION}</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+            <key>NSLocalNetworkUsageDescription</key><string>SSH connection to the car's head unit over the ENET cable.</string>
+          </dict></plist>
+          EOF
+          codesign --force --deep --sign - "$APP"
+          cd dist && ditto -c -k --keepParent "Android Auto Installer.app" "EntryNav2-Installer-macos-${ARCH}.zip"
+          rm -rf "Android Auto Installer.app"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.target }}
+          path: dist/*
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [checks, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: dist/*

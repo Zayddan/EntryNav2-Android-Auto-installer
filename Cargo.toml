@@ -1,0 +1,44 @@
+[package]
+name = "entrynav2-installer"
+version = "0.1.0"
+edition = "2021"
+description = "Desktop installer (Windows / macOS) for EntryNav2-Android-Auto"
+license-file = "LICENSE.md"
+publish = false
+
+[dependencies]
+eframe = "0.29"
+ssh2 = "0.9"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = { version = "0.10", features = ["oid"] }
+hex = "0.4"
+anyhow = "1"
+rfd = "0.15"
+egui_commonmark = { version = "0.18", default-features = false, features = ["pulldown_cmark"] }
+# Archive signature check (RSA PKCS #1 v1.5, SHA-256).
+rsa = { version = "0.9", features = ["sha2"] }
+tar = { version = "0.4", default-features = false }
+# Remembered password.
+keyring = { version = "3", features = ["windows-native", "apple-native"] }
+
+[dev-dependencies]
+rand = "0.8"
+png = "0.17"
+
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"
+
+# libssh2 uses OpenSSL on macOS (built statically) and WinCNG on Windows.
+[target.'cfg(target_os = "macos")'.dependencies]
+ssh2 = { version = "0.9", features = ["vendored-openssl"] }
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Storage_FileSystem", "Win32_Foundation"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = true

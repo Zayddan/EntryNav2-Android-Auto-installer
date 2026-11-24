@@ -1,0 +1,5 @@
+# Scripts run on the head unit: LF line endings.
+tests/scripts/** text eol=lf
+*.png binary
+*.ico binary
+*.der binary
