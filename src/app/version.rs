@@ -21,7 +21,7 @@ impl App {
             );
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if let Some(v) = self.target_version() {
-                    pill(ui, &format!("✔ CONFIRMED: {v}"), GREEN);
+                    pill(ui, &format!("CONFIRMED: {v}"), GREEN);
                 } else if let Some(v) = self.pending_choice() {
                     pill(ui, &format!("{v} CHOSEN · CONFIRM IT TO CONTINUE"), ORANGE);
                 } else {
@@ -42,7 +42,7 @@ impl App {
             banner(
                 ui,
                 RED,
-                "!",
+                Icon::Text("!"),
                 "Could not list the versions",
                 std::slice::from_ref(e),
             );
@@ -56,7 +56,10 @@ impl App {
                         ui.label(bold("Versions").size(16.0).color(TEXT));
                         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                             if ui
-                                .add_enabled(!self.busy(), egui::Button::new("⟳").rounding(8.0))
+                                .add_enabled(
+                                    !self.busy(),
+                                    egui::Button::new("Refresh").rounding(8.0),
+                                )
                                 .on_hover_text("Refresh")
                                 .clicked()
                             {
@@ -126,7 +129,7 @@ impl App {
                                         ui.set_width(ui.available_width());
                                         ui.horizontal(|ui| {
                                             if selected {
-                                                icon_circle(ui, 20.0, GREEN, "✔");
+                                                icon_circle(ui, 20.0, GREEN, Icon::Check);
                                             } else {
                                                 radio_dot(ui, browsed);
                                             }
@@ -205,12 +208,12 @@ impl App {
             banner(
                 ui,
                 ORANGE,
-                "!",
+                Icon::Text("!"),
                 "This installer cannot install this version",
                 &[reason.into()],
             );
             ui.hyperlink_to(
-                RichText::new("Open the release on GitHub ↗").size(12.5),
+                RichText::new("Open the release on GitHub").size(12.5),
                 format!(
                     "https://github.com/{}/releases/tag/{}",
                     github::REPO,
@@ -262,7 +265,7 @@ impl App {
                 ORANGE,
             ),
             Some(Installed::Version(cur)) => match compare_versions(&version, cur) {
-                Ordering::Greater => (format!("Update: {cur} → {version}"), GREEN),
+                Ordering::Greater => (format!("Update: {cur} to {version}"), GREEN),
                 Ordering::Equal => (
                     format!("{version} is already installed (reinstall)."),
                     MUTED,
@@ -278,13 +281,12 @@ impl App {
 
         ui.horizontal(|ui| {
             if selected {
-                if primary_button(ui, "Continue to the check  →", true).clicked() {
+                if primary_button(ui, "Continue to the check", true).clicked() {
                     self.page = Page::Check;
                 }
-                pill(ui, "✔ CONFIRMED", GREEN);
+                pill(ui, "CONFIRMED", GREEN);
             } else {
-                if primary_button(ui, &format!("Confirm {version} and continue  →"), true).clicked()
-                {
+                if primary_button(ui, &format!("Confirm {version} and continue"), true).clicked() {
                     self.confirm_browsed();
                 }
                 ui.label(
@@ -318,7 +320,7 @@ impl App {
                         });
                 });
             ui.hyperlink_to(
-                RichText::new("Open the release on GitHub ↗").size(12.5),
+                RichText::new("Open the release on GitHub").size(12.5),
                 format!(
                     "https://github.com/{}/releases/tag/{}",
                     github::REPO,
@@ -355,7 +357,7 @@ impl App {
                 banner(
                     ui,
                     RED,
-                    "!",
+                    Icon::Text("!"),
                     "Unrecognised file name",
                     &["Rename it to the format above.".into()],
                 );
@@ -388,14 +390,14 @@ impl App {
                 ui.add_space(4.0);
                 ui.horizontal(|ui| {
                     if self.local_confirmed {
-                        if primary_button(ui, "Continue to the check  →", true).clicked() {
+                        if primary_button(ui, "Continue to the check", true).clicked() {
                             self.page = Page::Check;
                         }
-                        pill(ui, &format!("✔ {v} CONFIRMED"), GREEN);
+                        pill(ui, &format!("{v} CONFIRMED"), GREEN);
                     } else {
                         if primary_button(
                             ui,
-                            &format!("Confirm this file ({v}) and continue  →"),
+                            &format!("Confirm this file ({v}) and continue"),
                             sha_ok,
                         )
                         .clicked()

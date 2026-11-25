@@ -40,6 +40,23 @@ jobs:
           for f in target/scripts/*.sh; do sh -n "$f"; done
           sh tests/scripts/sim.sh "$PWD/target/scripts" "$PWD/target/sim"
 
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libssl-dev libxkbcommon-dev pkg-config
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: e2e
+      - name: Install, disable, enable, uninstall on a fake head unit (Docker)
+        run: sh tests/car/run-e2e.sh
+
   build:
     strategy:
       fail-fast: false
@@ -79,6 +96,7 @@ jobs:
         run: |
           mkdir -p dist
           cp target/${{ matrix.target }}/release/entrynav2-installer.exe dist/EntryNav2-Installer-windows-x64.exe
+          cd dist && sha256sum EntryNav2-Installer-windows-x64.exe > EntryNav2-Installer-windows-x64.exe.sha256
 
       - name: Package (macOS .app)
         if: runner.os == 'macOS'
@@ -115,7 +133,9 @@ jobs:
           </dict></plist>
           EOF
           codesign --force --deep --sign - "$APP"
-          cd dist && ditto -c -k --keepParent "Android Auto Installer.app" "EntryNav2-Installer-macos-${ARCH}.zip"
+          ZIP="EntryNav2-Installer-macos-${ARCH}.zip"
+          cd dist && ditto -c -k --keepParent "Android Auto Installer.app" "$ZIP"
+          shasum -a 256 "$ZIP" > "$ZIP.sha256"
           rm -rf "Android Auto Installer.app"
 
       - uses: actions/upload-artifact@v7
@@ -125,11 +145,18 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [checks, build]
+    needs: [checks, e2e, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Tag matches Cargo.toml
+        run: |
+          VERSION=$(grep -m1 '^version' Cargo.toml | cut -d '"' -f2)
+          [ "${GITHUB_REF_NAME}" = "v${VERSION}" ] || { echo "Tag ${GITHUB_REF_NAME} but Cargo.toml says ${VERSION}"; exit 1; }
       - uses: actions/download-artifact@v8
         with:
           path: dist

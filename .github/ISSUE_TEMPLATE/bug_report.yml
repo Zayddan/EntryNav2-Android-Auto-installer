@@ -1,0 +1,81 @@
+name: Installer problem
+description: Something went wrong in the installer (connection, check, installation, USB stick...).
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Only for this installer. A problem with Android Auto itself once it is installed (phone, sound, screen)
+        belongs to [EntryNav2-Android-Auto](https://github.com/Jiraiya43/EntryNav2-Android-Auto/issues).
+  - type: input
+    id: installer
+    attributes:
+      label: Installer version
+      description: Shown under "About & credits" in the sidebar.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Computer
+      options:
+        - Windows
+        - macOS (Apple silicon)
+        - macOS (Intel)
+    validations:
+      required: true
+  - type: input
+    id: car
+    attributes:
+      label: Car and head unit
+      description: Model, year, and the "Head unit system version" line from the log.
+      placeholder: "MINI One F56 2015, EntryNav2_..."
+    validations:
+      required: true
+  - type: input
+    id: aa
+    attributes:
+      label: Android Auto version
+      description: The version you tried to install, and the one already on the car if any.
+      placeholder: "0.13.0-rc.10 (car had 0.12.0)"
+  - type: dropdown
+    id: step
+    attributes:
+      label: Step
+      options:
+        - Connection
+        - Version
+        - Check
+        - Install
+        - Maintenance
+        - USB update stick
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: Click "Show log" at the bottom of the window, then Copy, and paste it here.
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: state
+    attributes:
+      label: State of the car now
+      options:
+        - Works normally
+        - Android Auto does not start
+        - The iDrive does not start or keeps restarting
+        - Not sure
+    validations:
+      required: true

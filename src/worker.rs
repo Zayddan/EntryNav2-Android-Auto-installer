@@ -47,6 +47,8 @@ pub enum Msg {
     UsbWritten,
     /// The archive cannot be verified: the user must agree before its program runs.
     NeedsConsent(String),
+    InstallerUpdate(github::InstallerUpdate),
+    InstallerReplaced,
     TaskEnd,
 }
 
@@ -277,6 +279,39 @@ pub fn fetch_releases(ctx: &Ctx) -> Result<()> {
             Err(e)
         }
     }
+}
+
+pub fn check_installer_update(ctx: Ctx) {
+    std::thread::spawn(move || {
+        if let Ok(Some(u)) = github::installer_update() {
+            ctx.send(Msg::InstallerUpdate(u));
+        }
+    });
+}
+
+pub fn update_installer(ctx: &Ctx, update: github::InstallerUpdate) -> Result<()> {
+    ctx.info(format!("Downloading installer {}…", update.version));
+    let label = format!("Downloading installer {}", update.version);
+    let file = crate::self_update::download(&update, |d, t| {
+        ctx.progress(&label, d, t);
+        !ctx.cancelled()
+    })?;
+    ctx.ok("Installer download verified (SHA-256)");
+    ctx.busy("Replacing the installer…");
+    let target = crate::self_update::replace(&file)?;
+    let _ = std::fs::remove_file(&file);
+    crate::self_update::relaunch(&target).map_err(|e| {
+        anyhow::anyhow!(
+            "installer {} is installed but could not restart by itself ({e}). Close it and open it again.",
+            update.version
+        )
+    })?;
+    ctx.ok(format!(
+        "Installer {} installed. Restarting…",
+        update.version
+    ));
+    ctx.send(Msg::InstallerReplaced);
+    Ok(())
 }
 
 pub fn test_connection(ctx: &Ctx, conn: ConnParams) -> Result<()> {

@@ -207,7 +207,7 @@ pub fn page_header(ui: &mut Ui, title: &str, subtitle: &str) {
     ui.add_space(14.0);
 }
 
-pub fn banner(ui: &mut Ui, color: Color32, icon: &str, title: &str, lines: &[String]) {
+pub fn banner(ui: &mut Ui, color: Color32, icon: Icon, title: &str, lines: &[String]) {
     Frame::none()
         .fill(tint(color, 30))
         .stroke(Stroke::new(1.0_f32, tint(color, 120)))
@@ -229,16 +229,56 @@ pub fn banner(ui: &mut Ui, color: Color32, icon: &str, title: &str, lines: &[Str
     ui.add_space(6.0);
 }
 
-pub fn icon_circle(ui: &mut Ui, size: f32, color: Color32, icon: &str) {
+#[derive(Clone, Copy)]
+pub enum Icon<'a> {
+    Check,
+    Cross,
+    Play,
+    Text(&'a str),
+}
+
+pub fn icon_circle(ui: &mut Ui, size: f32, color: Color32, icon: Icon) {
     let (rect, _) = ui.allocate_exact_size(vec2(size, size), Sense::hover());
-    ui.painter().circle_filled(rect.center(), size / 2.0, color);
-    ui.painter().text(
-        rect.center(),
-        Align2::CENTER_CENTER,
-        icon,
-        FontId::new(size * 0.5, bold_family()),
-        Color32::WHITE,
-    );
+    let p = ui.painter();
+    p.circle_filled(rect.center(), size / 2.0, color);
+    let (c, u) = (rect.center(), size / 24.0);
+    let stroke = Stroke::new((2.2 * u).max(1.6), Color32::WHITE);
+    match icon {
+        Icon::Check => {
+            let pts = vec![
+                pos2(c.x - 5.5 * u, c.y + 0.5 * u),
+                pos2(c.x - 1.8 * u, c.y + 4.2 * u),
+                pos2(c.x + 5.8 * u, c.y - 4.0 * u),
+            ];
+            p.add(egui::Shape::line(pts, stroke));
+        }
+        Icon::Cross => {
+            let d = 4.5 * u;
+            p.line_segment([pos2(c.x - d, c.y - d), pos2(c.x + d, c.y + d)], stroke);
+            p.line_segment([pos2(c.x - d, c.y + d), pos2(c.x + d, c.y - d)], stroke);
+        }
+        Icon::Play => {
+            let pts = vec![
+                pos2(c.x - 3.5 * u, c.y - 5.5 * u),
+                pos2(c.x + 5.5 * u, c.y),
+                pos2(c.x - 3.5 * u, c.y + 5.5 * u),
+            ];
+            p.add(egui::Shape::convex_polygon(
+                pts,
+                Color32::WHITE,
+                Stroke::NONE,
+            ));
+        }
+        Icon::Text(t) => {
+            p.text(
+                c,
+                Align2::CENTER_CENTER,
+                t,
+                FontId::new(size * 0.5, bold_family()),
+                Color32::WHITE,
+            );
+        }
+    }
 }
 
 // Buttons: rectangles with a fill or outline. Badges: fully rounded, never clickable.
@@ -377,9 +417,9 @@ pub fn status_row(ui: &mut Ui, state: RowState, title: &str, detail: &str) {
                     Stroke::new(1.5_f32, BORDER_STRONG),
                 );
             }
-            RowState::Done => icon_circle(ui, size, GREEN, "✔"),
-            RowState::Warn => icon_circle(ui, size, ORANGE, "!"),
-            RowState::Error => icon_circle(ui, size, RED, "✖"),
+            RowState::Done => icon_circle(ui, size, GREEN, Icon::Check),
+            RowState::Warn => icon_circle(ui, size, ORANGE, Icon::Text("!")),
+            RowState::Error => icon_circle(ui, size, RED, Icon::Cross),
         }
         ui.vertical(|ui| {
             ui.spacing_mut().item_spacing.y = 1.0;
@@ -482,13 +522,13 @@ pub fn nav_item(
 
     let c = pos2(rect.left() + 24.0, rect.center().y);
     let r = 13.0;
-    let (fill, glyph, glyph_color) = match state {
-        StepState::Done => (Some(GREEN), "✔", Color32::WHITE),
-        StepState::Warn => (Some(ORANGE), "!", Color32::WHITE),
-        StepState::Error => (Some(RED), "✖", Color32::WHITE),
-        StepState::Pending if selected => (Some(ACCENT), badge, Color32::WHITE),
-        StepState::Pending => (None, badge, MUTED),
-        StepState::Locked => (None, "", LOCKED_TEXT),
+    let (fill, glyph_color) = match state {
+        StepState::Done => (Some(GREEN), Color32::WHITE),
+        StepState::Warn => (Some(ORANGE), Color32::WHITE),
+        StepState::Error => (Some(RED), Color32::WHITE),
+        StepState::Pending if selected => (Some(ACCENT), Color32::WHITE),
+        StepState::Pending => (None, MUTED),
+        StepState::Locked => (None, LOCKED_TEXT),
     };
     match fill {
         Some(f) => {
@@ -505,7 +545,7 @@ pub fn nav_item(
         p.text(
             c,
             Align2::CENTER_CENTER,
-            glyph,
+            badge,
             FontId::new(12.5, bold_family()),
             glyph_color,
         );

@@ -1,6 +1,6 @@
 [package]
 name = "entrynav2-installer"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Desktop installer (Windows / macOS) for EntryNav2-Android-Auto"
 license-file = "LICENSE.md"

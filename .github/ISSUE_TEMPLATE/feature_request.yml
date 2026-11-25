@@ -1,0 +1,16 @@
+name: Suggestion
+description: An idea to make the installer easier or safer to use.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What would help
+      description: The problem you hit, or what you would like to do.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Idea
+      description: How the installer could do it (optional).

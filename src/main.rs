@@ -4,9 +4,12 @@
 mod app;
 mod car;
 mod config;
+#[cfg(test)]
+mod e2e;
 mod github;
 mod icon;
 mod scripts;
+mod self_update;
 mod signature;
 mod theme;
 mod usb;

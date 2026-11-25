@@ -59,6 +59,7 @@ enum Action {
     Reboot,
     /// Writes a release archive to a USB stick (does not touch the car).
     WriteUsb,
+    UpdateInstaller,
 }
 
 impl Action {
@@ -176,6 +177,9 @@ pub struct App {
     usb_target: Option<crate::usb::Drive>,
     usb_scanned: bool,
     usb_remove_others: bool,
+
+    installer_update: Option<github::InstallerUpdate>,
+    update_hidden: bool,
 }
 
 impl App {
@@ -236,6 +240,8 @@ impl App {
             usb_target: None,
             usb_scanned: false,
             usb_remove_others: true,
+            installer_update: None,
+            update_hidden: false,
         };
         if let Some(c) = crate::config::load_connection() {
             (app.host, app.port, app.user) = (c.host, c.port, c.user);
@@ -245,6 +251,8 @@ impl App {
             app.password = crate::config::load_password(&app.user).unwrap_or_default();
         }
         app.start(Action::FetchReleases, &cc.egui_ctx);
+        crate::self_update::cleanup();
+        worker::check_installer_update(Ctx::new(app.tx.clone(), cc.egui_ctx.clone()));
         app
     }
 
@@ -577,34 +585,56 @@ impl App {
             }
         }
         let c = Ctx::new(self.tx.clone(), ctx.clone());
-        let conn = if matches!(action, Action::FetchReleases | Action::WriteUsb) {
-            None
-        } else {
-            match self.conn() {
-                Ok(c) => Some(c),
-                Err(e) => return self.log(Level::Error, e),
-            }
-        };
-        self.task_conn_id = conn.as_ref().map(|c| c.id());
-        self.cancel = Some(c.cancel_flag());
 
         match action {
-            Action::FetchReleases => worker::spawn(c, worker::fetch_releases),
+            Action::FetchReleases => {
+                self.task_conn_id = None;
+                self.cancel = Some(c.cancel_flag());
+                worker::spawn(c, worker::fetch_releases);
+                self.task = Some(action);
+                return;
+            }
             Action::WriteUsb => {
                 let (Some(pkg), Some(target)) = (self.usb_package(), self.usb_target.clone())
                 else {
                     return;
                 };
                 let remove = self.usb_remove_others;
+                self.task_conn_id = None;
+                self.cancel = Some(c.cancel_flag());
                 self.operation = Some(self.new_operation(Action::WriteUsb));
                 worker::spawn(c, move |c| worker::write_usb(c, pkg, target.root, remove));
+                self.task = Some(action);
+                return;
+            }
+            Action::UpdateInstaller => {
+                let Some(update) = self.installer_update.clone() else {
+                    return;
+                };
+                self.task_conn_id = None;
+                self.cancel = Some(c.cancel_flag());
+                worker::spawn(c, move |c| worker::update_installer(c, update));
+                self.task = Some(action);
+                return;
+            }
+            _ => {}
+        }
+
+        let conn = match self.conn() {
+            Ok(conn) => conn,
+            Err(e) => return self.log(Level::Error, e),
+        };
+        self.task_conn_id = Some(conn.id());
+        self.cancel = Some(c.cancel_flag());
+
+        match action {
+            Action::FetchReleases | Action::WriteUsb | Action::UpdateInstaller => {
+                unreachable!("handled above")
             }
             Action::TestConnection => {
-                let conn = conn.unwrap();
                 worker::spawn(c, move |c| worker::test_connection(c, conn));
             }
             Action::Stop => {
-                let conn = conn.unwrap();
                 worker::spawn(c, move |c| worker::stop(c, conn));
             }
             Action::Prepare | Action::PrepareUnverified => {
@@ -616,7 +646,6 @@ impl App {
                 self.check_used = false;
                 self.just_installed = None;
                 self.install_error = None;
-                let conn = conn.unwrap();
                 let allow_unverified = action == Action::PrepareUnverified;
                 worker::spawn(c, move |c| {
                     worker::prepare(c, conn, source, allow_unverified)
@@ -626,27 +655,28 @@ impl App {
                 let Some(version) = self.report.as_ref().map(|r| r.version.clone()) else {
                     return;
                 };
-                let conn = conn.unwrap();
                 worker::spawn(c, move |c| worker::discard(c, conn, version));
             }
             Action::Install => {
                 if let Err(e) = self.can_install() {
                     return self.log(Level::Error, e);
                 }
+                let Some(version) = self.target_version() else {
+                    return self.log(Level::Error, "Choose and confirm a version first");
+                };
                 self.install_error = None;
                 self.operation = Some(self.new_operation(Action::Install));
                 let opts = InstallOptions {
-                    version: self.target_version().unwrap(),
+                    version,
                     vehicle: self.vehicle(),
                     auto_stop: self.auto_stop,
                     usb_mode: self.wired_only() && self.usb_mode,
                     reboot: self.reboot_after,
                 };
-                let conn = conn.unwrap();
                 worker::spawn(c, move |c| worker::install(c, conn, opts));
             }
             Action::Uninstall | Action::Enable | Action::Disable | Action::Reboot => {
-                let (conn, reboot) = (conn.unwrap(), self.reboot_after);
+                let reboot = self.reboot_after;
                 match action {
                     Action::Uninstall => {
                         let (keep, auto_stop) = (self.keep_settings, self.auto_stop);
@@ -737,6 +767,8 @@ impl App {
                         danger: true,
                     });
                 }
+                Msg::InstallerUpdate(u) => self.installer_update = Some(u),
+                Msg::InstallerReplaced => self.close_after_task = true,
                 Msg::Checked(r) => self.report = Some(r),
                 Msg::Installed(v) => {
                     // The check stays shown as done; its archive is gone from the car.
@@ -792,7 +824,7 @@ impl App {
 /// Says why a button next to it is greyed out.
 fn hint(ui: &mut egui::Ui, why: Option<&str>) {
     if let Some(why) = why {
-        ui.label(RichText::new(format!("⚠ {why}")).size(12.5).color(ORANGE));
+        ui.label(RichText::new(why.to_string()).size(12.5).color(ORANGE));
     }
 }
 
@@ -879,6 +911,7 @@ impl eframe::App for App {
                             })
                             .show(ui, |ui| {
                                 ui.set_max_width(ui.available_width().min(960.0));
+                                self.ui_update_banner(ui);
                                 match self.page {
                                     Page::Connection => self.page_connection(ui, &mut action),
                                     Page::Version => self.page_version(ui, &mut action),

@@ -22,14 +22,14 @@ impl App {
             .show(ui, |ui| {
                 ui.set_width(ui.available_width());
                 ui.horizontal(|ui| {
-                    icon_circle(ui, 30.0, ORANGE, "▶");
+                    icon_circle(ui, 30.0, ORANGE, Icon::Play);
                     ui.vertical(|ui| {
                         ui.spacing_mut().item_spacing.y = 3.0;
                         ui.label(bold("Android Auto is running").size(16.0).color(TEXT));
                         ui.label(RichText::new(context).color(TEXT));
                     });
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if secondary_button(ui, "■  Stop Android Auto", !busy).clicked() {
+                        if secondary_button(ui, "Stop Android Auto", !busy).clicked() {
                             *action = Some(Action::Stop);
                         }
                     });
@@ -47,7 +47,7 @@ impl App {
 
         card(ui, |ui| {
             ui.horizontal(|ui| {
-                icon_circle(ui, 34.0, tint(ACCENT, 90), "⚡");
+                icon_circle(ui, 34.0, tint(ACCENT, 90), Icon::Text("i"));
                 ui.vertical(|ui| {
                     ui.spacing_mut().item_spacing.y = 2.0;
                     ui.label(bold("Before you start").color(TEXT));
@@ -155,7 +155,7 @@ impl App {
                 }
             });
             ui.add_space(6.0);
-            if primary_button(ui, "Choose the version  →", true).clicked() {
+            if primary_button(ui, "Choose the version", true).clicked() {
                 self.page = Page::Version;
             }
         });

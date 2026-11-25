@@ -298,9 +298,9 @@ impl App {
 
         let (mut close, mut show_log) = (false, false);
         let (color, glyph) = if d.success {
-            (GREEN, "✔")
+            (GREEN, Icon::Check)
         } else {
-            (RED, "✖")
+            (RED, Icon::Cross)
         };
         egui::Area::new(egui::Id::new("dialog"))
             .order(egui::Order::Tooltip)
@@ -338,7 +338,7 @@ impl App {
                                     for w in &d.warnings {
                                         ui.add(
                                             egui::Label::new(
-                                                RichText::new(format!("⚠ {w}")).color(ORANGE),
+                                                RichText::new(w.to_string()).color(ORANGE),
                                             )
                                             .wrap(),
                                         );
@@ -351,7 +351,12 @@ impl App {
                             ui.label(bold(d.steps_title).size(15.0).color(TEXT));
                             for (i, step) in d.steps.iter().enumerate() {
                                 ui.horizontal_top(|ui| {
-                                    icon_circle(ui, 22.0, tint(color, 170), &(i + 1).to_string());
+                                    icon_circle(
+                                        ui,
+                                        22.0,
+                                        tint(color, 170),
+                                        Icon::Text(&(i + 1).to_string()),
+                                    );
                                     ui.add(
                                         egui::Label::new(RichText::new(step).color(TEXT)).wrap(),
                                     );
@@ -429,7 +434,7 @@ impl App {
                                 ],
                             );
                             ui.hyperlink_to(
-                                RichText::new(format!("github.com/{} ↗", github::REPO)).size(13.0),
+                                RichText::new(format!("github.com/{}", github::REPO)).size(13.0),
                                 format!("https://github.com/{}", github::REPO),
                             );
 
@@ -519,32 +524,26 @@ impl App {
                         );
                     });
                     ui.add_space(12.0);
-                    let rules: [(&str, &str, &str); 5] = [
-                        ("P", "Park the car", "Never use the app, or the head unit's shell, while driving."),
+                    let rules: [(&str, &str); 5] = [
+                        ("Park the car", "Never use the app, or the head unit's shell, while driving."),
+                        ("Ignition on, all the way", "Never turn it off during an installation."),
                         (
-                            "⚡",
-                            "Ignition on, all the way",
-                            "Never turn it off during an installation.",
-                        ),
-                        (
-                            "!",
                             "Experimental software",
                             "It changes the head unit's system. Use at your own risk.",
                         ),
                         (
-                            "©",
                             "Not affiliated with BMW or Google",
                             "Only on your own car. It may affect your warranty.",
                         ),
                         (
-                            "✔",
                             "Everything is checked first",
                             "Nothing is written before the check passes, and every change is confirmed.",
                         ),
                     ];
-                    for (glyph, title, text) in rules {
+                    for (i, (title, text)) in rules.into_iter().enumerate() {
                         ui.horizontal_top(|ui| {
-                            icon_circle(ui, 28.0, tint(ACCENT, 150), glyph);
+                            let n = (i + 1).to_string();
+                            icon_circle(ui, 28.0, tint(ACCENT, 150), Icon::Text(&n));
                             ui.vertical(|ui| {
                                 ui.spacing_mut().item_spacing.y = 2.0;
                                 ui.label(bold(title).color(TEXT));
@@ -587,7 +586,7 @@ impl App {
                 Self::window_frame(color).show(ui, |ui| {
                     ui.set_width(500.0_f32.min(screen.width() - 80.0));
                     ui.vertical_centered(|ui| {
-                        icon_circle(ui, 56.0, color, "?");
+                        icon_circle(ui, 56.0, color, Icon::Text("?"));
                         ui.add_space(6.0);
                         ui.label(bold(&c.title).size(21.0).color(TEXT));
                     });
@@ -609,7 +608,7 @@ impl App {
                                 for w in &c.warnings {
                                     ui.add(
                                         egui::Label::new(
-                                            RichText::new(format!("⚠ {w}")).color(ORANGE),
+                                            RichText::new(w.to_string()).color(ORANGE),
                                         )
                                         .wrap(),
                                     );

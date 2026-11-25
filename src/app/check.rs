@@ -15,7 +15,7 @@ impl App {
                     banner(
                         ui,
                         ORANGE,
-                        "!",
+                        Icon::Text("!"),
                         &format!("You chose version {v}: confirm it"),
                         &["The check runs on the confirmed version only.".into()],
                     );
@@ -32,7 +32,7 @@ impl App {
                     banner(
                         ui,
                         ORANGE,
-                        "!",
+                        Icon::Text("!"),
                         "No version chosen yet",
                         &["Pick a version in step 2, then confirm it.".into()],
                     );
@@ -56,32 +56,32 @@ impl App {
                 Verdict::Ok => banner(
                     ui,
                     GREEN,
-                    "✔",
+                    Icon::Check,
                     &format!("Version {} is compatible", r.version),
                     &["You can go on to the installation.".into()],
                 ),
                 Verdict::WiredOnly => banner(
                     ui,
                     ORANGE,
-                    "!",
+                    Icon::Text("!"),
                     &format!("Version {} is compatible for USB only", r.version),
                     &["Wireless Android Auto is not available on this car. The installer can select USB mode for you.".into()],
                 ),
                 Verdict::Blocked(reasons) => {
                     let lines: Vec<String> = reasons.iter().map(|x| format!("• {x}")).collect();
-                    banner(ui, RED, "✖", "Do not install this version", &lines);
+                    banner(ui, RED, Icon::Cross, "Do not install this version", &lines);
                 }
             }
             if self.check_used {
                 ui.label(
                     RichText::new(
-                        "✔ This version was installed after this check. Its files were then removed from \
+                        "This version was installed after this check. Its files were then removed from \
                          the car, so installing again needs a new check.",
                     )
                     .color(MUTED),
                 );
             } else if !matches!(r.verdict(), Verdict::Blocked(_))
-                && primary_button(ui, "Continue to installation  →", true).clicked()
+                && primary_button(ui, "Continue to installation", true).clicked()
             {
                 self.page = Page::Install;
             }

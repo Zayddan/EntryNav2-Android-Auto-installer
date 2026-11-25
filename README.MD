@@ -15,16 +15,33 @@ without using a command line.
 
 ## Download
 
-Get the latest version from the [Releases](../../releases) page:
+Get the latest version from the [Releases](../../releases) page. The app is not signed, so the system warns you the
+first time you open it.
 
-- Windows: `EntryNav2-Installer-windows-x64.exe`
-- macOS: `EntryNav2-Installer-macos-apple-silicon.zip` or `EntryNav2-Installer-macos-intel.zip`
+### Windows
 
-(not signed by Apple: open it once, then System Settings › Privacy & Security › Open Anyway)
+1. Download `EntryNav2-Installer-windows-x64.exe` and open it.
+2. If "Windows protected your PC" appears, click **More info**, then **Run anyway**.
+
+### macOS
+
+1. Download the zip for your Mac: `EntryNav2-Installer-macos-apple-silicon.zip` (M1 and newer) or
+   `EntryNav2-Installer-macos-intel.zip` (older Macs).
+2. Unzip it and move **Android Auto Installer** to the **Applications** folder.
+3. Open it. macOS blocks it the first time.
+4. Go to **System Settings › Privacy & Security**, scroll down and click **Open Anyway**.
+
+### Updates
+
+When a new version of the installer is available, a banner appears at the top of the app. Click **Update**: the app
+downloads the new version, checks it, replaces itself and restarts. Nothing on the car is changed.
+
+On macOS, updates only work when the app is in the **Applications** folder.
 
 ## Requirements
 
 - An ENET cable (OBD to Ethernet).
+- SSH enabled on the head unit.
 - The head unit's root password. It is not provided by this app or by the project.
 
 ## Usage
@@ -44,8 +61,9 @@ uninstall it or reboot the head unit.
 
 ## USB stick updates
 
-From 0.13.0-rc.10, the car can update itself from a USB stick. On the **USB stick** page, choose a release and a stick:
-the app copies the signed archive to its root. In the car: **Media › Android Auto › Update from USB stick**.
+Once 0.13.0-rc.10 or newer is installed on the car (with the cable, steps above), later updates can be done
+from a USB stick. On the **USB stick** page, choose a release and a stick: the app copies the signed archive to
+its root. In the car: **Media › Android Auto › Update from USB stick**.
 
 ## Safety
 

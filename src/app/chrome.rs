@@ -31,7 +31,7 @@ impl App {
         let (state, sub) = self.step_state(Page::Maintenance);
         if nav_item(
             ui,
-            "⚙",
+            "M",
             "Maintenance",
             &sub,
             state,
@@ -87,7 +87,8 @@ impl App {
                         };
                         ui.label(RichText::new(aa).size(12.0).color(MUTED));
                         if info.running {
-                            ui.label(RichText::new("● Running").size(12.0).color(ORANGE));
+                            dot(ui, ORANGE);
+                            ui.label(RichText::new("Running").size(12.0).color(ORANGE));
                         }
                     }
                 });
@@ -127,9 +128,9 @@ impl App {
             }
             if new_errors > 0 {
                 let text = if new_errors == 1 {
-                    "⚠ 1 new error · view".to_string()
+                    "1 new error · view".to_string()
                 } else {
-                    format!("⚠ {new_errors} new errors · view")
+                    format!("{new_errors} new errors · view")
                 };
                 if small_button(ui, &text, RED, tint(RED, 150)).clicked() {
                     self.show_log = true;
@@ -209,11 +210,11 @@ impl App {
                 ui.spacing_mut().item_spacing.y = 3.0;
                 for (lvl, line) in &self.logs {
                     let (prefix, color) = match lvl {
-                        Level::Info => ("›", TEXT),
-                        Level::Remote => ("│", MUTED),
-                        Level::Ok => ("✔", GREEN),
-                        Level::Warn => ("⚠", ORANGE),
-                        Level::Error => ("✖", RED),
+                        Level::Info => ("-", TEXT),
+                        Level::Remote => ("|", MUTED),
+                        Level::Ok => ("+", GREEN),
+                        Level::Warn => ("!", ORANGE),
+                        Level::Error => ("x", RED),
                     };
                     ui.label(
                         RichText::new(format!("{prefix} {line}"))
@@ -222,5 +223,79 @@ impl App {
                     );
                 }
             });
+    }
+
+    pub(super) fn ui_update_banner(&mut self, ui: &mut egui::Ui) {
+        if self.update_hidden {
+            return;
+        }
+        let Some(u) = &self.installer_update else {
+            return;
+        };
+        let (version, page) = (u.version.clone(), u.page.clone());
+        let updating = self.task == Some(Action::UpdateInstaller);
+        let busy = self.busy();
+        let (mut update, mut later) = (false, false);
+        Frame::none()
+            .fill(tint(ACCENT, 30))
+            .stroke(Stroke::new(1.0_f32, tint(ACCENT, 120)))
+            .rounding(12.0)
+            .inner_margin(Margin::symmetric(16.0, 10.0))
+            .show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                ui.horizontal(|ui| {
+                    ui.vertical(|ui| {
+                        ui.spacing_mut().item_spacing.y = 2.0;
+                        ui.label(bold(format!("Installer {version} is available")).color(TEXT));
+                        let sub = if updating {
+                            "Updating… the installer restarts by itself.".to_string()
+                        } else if busy {
+                            "You can update once the current task is over.".to_string()
+                        } else {
+                            format!(
+                                "You have {}. Nothing on the car is changed.",
+                                env!("CARGO_PKG_VERSION")
+                            )
+                        };
+                        ui.label(RichText::new(sub).size(12.5).color(MUTED));
+                    });
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if !updating {
+                            later = small_button(ui, "Later", MUTED, BORDER_STRONG).clicked();
+                        }
+                        if small_button(ui, "What's new", TEXT, BORDER_STRONG).clicked() {
+                            ui.ctx().open_url(egui::OpenUrl::new_tab(&page));
+                        }
+                        let btn =
+                            egui::Button::new(bold("Update").size(13.0).color(Color32::WHITE))
+                                .fill(if busy { tint(ACCENT, 70) } else { ACCENT })
+                                .stroke(Stroke::NONE)
+                                .rounding(BUTTON_ROUNDING)
+                                .min_size(egui::vec2(90.0, 28.0));
+                        update = ui
+                            .add_enabled(!busy, btn)
+                            .on_hover_cursor(CursorIcon::PointingHand)
+                            .clicked();
+                    });
+                });
+            });
+        ui.add_space(14.0);
+        if later {
+            self.update_hidden = true;
+        }
+        if update {
+            self.confirm = Some(Confirm {
+                action: Action::UpdateInstaller,
+                title: format!("Update the installer to {version}?"),
+                lines: vec![
+                    "The new version is downloaded from GitHub, checked (SHA-256), then replaces this one."
+                        .into(),
+                    "The installer then restarts. Nothing on the car is changed.".into(),
+                ],
+                warnings: vec![],
+                button: "Update and restart".into(),
+                danger: false,
+            });
+        }
     }
 }

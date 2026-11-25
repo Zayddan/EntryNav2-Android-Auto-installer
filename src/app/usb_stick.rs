@@ -72,7 +72,7 @@ impl App {
         page_header(
             ui,
             "USB update stick",
-            "Update the car without a computer. Needs 0.13.0-rc.10 or newer on the car.",
+            "Update the car without a computer. The car must already run 0.13.0-rc.10 or newer, installed with the cable.",
         );
 
         let too_old = match self.installed() {
@@ -90,7 +90,7 @@ impl App {
             banner(
                 ui,
                 ORANGE,
-                "!",
+                Icon::Text("!"),
                 "This car cannot update from a USB stick yet",
                 &[format!(
                     "{what} Install {USB_UPDATE_SINCE} or newer once with steps 1 to 4; later updates can then use the stick."
@@ -170,7 +170,7 @@ impl App {
                             }
                         }
                     }
-                    if secondary_button(ui, "⟳  Refresh", !self.busy()).clicked() {
+                    if secondary_button(ui, "Refresh", !self.busy()).clicked() {
                         self.refresh_drives();
                     }
                 });

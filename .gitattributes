@@ -3,3 +3,5 @@ tests/scripts/** text eol=lf
 *.png binary
 *.ico binary
 *.der binary
+*.sh text eol=lf
+tests/car/** text eol=lf

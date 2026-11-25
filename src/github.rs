@@ -9,6 +9,7 @@ use std::path::Path;
 use std::time::Duration;
 
 pub const REPO: &str = "Jiraiya43/EntryNav2-Android-Auto";
+pub const INSTALLER_REPO: &str = "Zayddan/EntryNav2-Android-Auto-installer";
 pub const ASSET_PREFIX: &str = "entrynav2-android-auto-";
 pub const ASSET_SUFFIX: &str = "-armhf.tar";
 
@@ -35,7 +36,62 @@ pub struct Release {
     #[serde(default)]
     pub body: Option<String>,
     #[serde(default)]
+    pub html_url: Option<String>,
+    #[serde(default)]
     pub assets: Vec<Asset>,
+}
+
+#[derive(Debug, Clone)]
+pub struct InstallerUpdate {
+    pub version: String,
+    pub page: String,
+    pub asset: Asset,
+    pub sha_asset: Option<Asset>,
+}
+
+pub fn installer_asset_name() -> Option<&'static str> {
+    if cfg!(target_os = "windows") {
+        Some("EntryNav2-Installer-windows-x64.exe")
+    } else if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+        Some("EntryNav2-Installer-macos-apple-silicon.zip")
+    } else if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
+        Some("EntryNav2-Installer-macos-intel.zip")
+    } else {
+        None
+    }
+}
+
+pub fn newer_installer(r: &Release, current: &str, asset_name: &str) -> Option<InstallerUpdate> {
+    let version = r.tag_name.trim_start_matches('v').to_string();
+    if r.draft
+        || r.prerelease
+        || !crate::scripts::is_safe_token(&version)
+        || compare_versions(&version, current) != std::cmp::Ordering::Greater
+    {
+        return None;
+    }
+    let asset = r.assets.iter().find(|a| a.name == asset_name)?.clone();
+    let sha_name = format!("{asset_name}.sha256");
+    Some(InstallerUpdate {
+        version,
+        page: r
+            .html_url
+            .clone()
+            .unwrap_or_else(|| format!("https://github.com/{INSTALLER_REPO}/releases/latest")),
+        sha_asset: r.assets.iter().find(|a| a.name == sha_name).cloned(),
+        asset,
+    })
+}
+
+pub fn installer_update() -> Result<Option<InstallerUpdate>> {
+    let Some(name) = installer_asset_name() else {
+        return Ok(None);
+    };
+    let url = format!("https://api.github.com/repos/{INSTALLER_REPO}/releases/latest");
+    let release: Release = get(&url, Some("application/vnd.github+json"), API_TIMEOUT)?
+        .json()
+        .map_err(|_| anyhow!("GitHub sent an incomplete answer. Try again."))?;
+    Ok(newer_installer(&release, env!("CARGO_PKG_VERSION"), name))
 }
 
 /// Installable archive of a release.
@@ -155,8 +211,13 @@ pub fn normalize_sha256(s: &str) -> Option<String> {
 }
 
 /// Downloads are only accepted from the project's GitHub release pages.
+#[cfg(test)]
 fn check_url(url: &str) -> Result<()> {
-    let allowed = format!("https://github.com/{REPO}/releases/download/");
+    check_url_in(REPO, url)
+}
+
+fn check_url_in(repo: &str, url: &str) -> Result<()> {
+    let allowed = format!("https://github.com/{repo}/releases/download/");
     if !url.starts_with(&allowed) {
         bail!("refusing to download from an unexpected address: {url}");
     }
@@ -248,11 +309,19 @@ pub fn list_releases() -> Result<Vec<Release>> {
 
 /// Reference SHA-256 published for the archive, if any.
 pub fn expected_sha256(pkg: &Package) -> Result<Option<String>> {
-    if let Some(hex) = pkg.asset.digest.as_deref().and_then(normalize_sha256) {
+    published_sha256(REPO, &pkg.asset, pkg.sha_asset.as_ref())
+}
+
+pub fn published_sha256(
+    repo: &str,
+    asset: &Asset,
+    sha_asset: Option<&Asset>,
+) -> Result<Option<String>> {
+    if let Some(hex) = asset.digest.as_deref().and_then(normalize_sha256) {
         return Ok(Some(hex));
     }
-    if let Some(sha) = &pkg.sha_asset {
-        check_url(&sha.browser_download_url)?;
+    if let Some(sha) = sha_asset {
+        check_url_in(repo, &sha.browser_download_url)?;
         let text = get(&sha.browser_download_url, None, API_TIMEOUT)
             .context("could not get the published SHA-256")?
             .text()
@@ -272,9 +341,18 @@ pub fn expected_sha256(pkg: &Package) -> Result<Option<String>> {
 pub fn download(
     asset: &Asset,
     dest: &Path,
+    progress: impl FnMut(u64, u64) -> bool,
+) -> Result<String> {
+    download_from(REPO, asset, dest, progress)
+}
+
+pub fn download_from(
+    repo: &str,
+    asset: &Asset,
+    dest: &Path,
     mut progress: impl FnMut(u64, u64) -> bool,
 ) -> Result<String> {
-    check_url(&asset.browser_download_url)?;
+    check_url_in(repo, &asset.browser_download_url)?;
     let mut resp = get(&asset.browser_download_url, None, DOWNLOAD_TIMEOUT)?;
     let total = resp.content_length().unwrap_or(asset.size);
     let tmp = dest.with_extension("part");
@@ -383,6 +461,37 @@ mod tests {
             assert!(text.contains(needle), "{code}: {text}");
             assert!(!text.contains("http") && text.len() < 100, "{text}");
         }
+    }
+
+    #[test]
+    fn installer_update_choice() {
+        let asset = |name: &str| Asset {
+            name: name.into(),
+            browser_download_url: format!(
+                "https://github.com/{INSTALLER_REPO}/releases/download/v0.2.0/{name}"
+            ),
+            size: 1,
+            digest: None,
+        };
+        let release = |tag: &str, prerelease: bool| Release {
+            tag_name: tag.into(),
+            prerelease,
+            draft: false,
+            published_at: None,
+            body: None,
+            html_url: None,
+            assets: vec![asset("a.exe"), asset("a.exe.sha256"), asset("b.zip")],
+        };
+        let u = newer_installer(&release("v0.2.0", false), "0.1.0", "a.exe").unwrap();
+        assert_eq!(u.version, "0.2.0");
+        assert_eq!(u.sha_asset.unwrap().name, "a.exe.sha256");
+        assert!(newer_installer(&release("v0.1.0", false), "0.1.0", "a.exe").is_none());
+        assert!(newer_installer(&release("v0.0.9", false), "0.1.0", "a.exe").is_none());
+        assert!(newer_installer(&release("v0.2.0", true), "0.1.0", "a.exe").is_none());
+        assert!(newer_installer(&release("v0.2.0", false), "0.1.0", "c.zip").is_none());
+        assert!(newer_installer(&release("v0.2;rm", false), "0.1.0", "a.exe").is_none());
+        assert!(check_url_in(INSTALLER_REPO, &asset("a.exe").browser_download_url).is_ok());
+        assert!(check_url(&asset("a.exe").browser_download_url).is_err());
     }
 
     #[test]

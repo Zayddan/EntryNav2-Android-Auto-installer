@@ -1,0 +1,2 @@
+#!/bin/sh
+echo reboot >> /sim/log/reboot.log

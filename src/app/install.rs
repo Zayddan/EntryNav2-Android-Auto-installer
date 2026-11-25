@@ -14,7 +14,7 @@ impl App {
             banner(
                 ui,
                 GREEN,
-                "✔",
+                Icon::Check,
                 &format!("Android Auto {v} is installed"),
                 &[
                     "Once the head unit has restarted: iDrive › Media › Android Auto › Start."
@@ -26,7 +26,7 @@ impl App {
             banner(
                 ui,
                 RED,
-                "✖",
+                Icon::Cross,
                 "The installation did not complete",
                 std::slice::from_ref(e),
             );

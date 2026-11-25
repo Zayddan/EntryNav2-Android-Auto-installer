@@ -1,0 +1,7 @@
+#!/bin/sh
+# The car's old BusyBox takes "timeout -t SECS"; the current one takes "timeout SECS".
+if [ "$1" = timeout ] && [ "$2" = -t ]; then
+    shift 2
+    exec /bin/busybox timeout "$@"
+fi
+exec /bin/busybox "$@"

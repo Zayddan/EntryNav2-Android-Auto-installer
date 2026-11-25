@@ -45,7 +45,7 @@ impl App {
                     }
                 }
             });
-            if secondary_button(ui, "⟳  Refresh status", !self.busy()).clicked() {
+            if secondary_button(ui, "Refresh status", !self.busy()).clicked() {
                 *action = Some(Action::TestConnection);
             }
         });
@@ -57,7 +57,7 @@ impl App {
                 Some("Same as Stop in the iDrive menu."),
             );
             ui.horizontal(|ui| {
-                if secondary_button(ui, "■  Stop Android Auto", stop_block.is_none()).clicked() {
+                if secondary_button(ui, "Stop Android Auto", stop_block.is_none()).clicked() {
                     *action = Some(Action::Stop);
                 }
                 hint(ui, stop_block);
@@ -71,7 +71,7 @@ impl App {
                 Some("Restarts the iDrive, for example after an installation."),
             );
             ui.horizontal(|ui| {
-                if secondary_button(ui, "↻  Reboot", reboot_block.is_none()).clicked() {
+                if secondary_button(ui, "Reboot", reboot_block.is_none()).clicked() {
                     let running = self.car_info.as_ref().is_some_and(|i| i.running);
                     let mut lines = vec![
                         "The iDrive screen goes dark and restarts (about a minute).".to_string(),
@@ -113,7 +113,7 @@ impl App {
                 banner(
                     ui,
                     ORANGE,
-                    "!",
+                    Icon::Text("!"),
                     "Only re-enable after fixing the cause",
                     &["Otherwise the restart loop comes back.".into()],
                 );
@@ -127,7 +127,7 @@ impl App {
                 );
             }
             ui.horizontal(|ui| {
-                if secondary_button(ui, "▶  Re-enable Android Auto", enable_block.is_none())
+                if secondary_button(ui, "Re-enable Android Auto", enable_block.is_none())
                     .clicked()
                 {
                     self.confirm = Some(Confirm {
@@ -148,7 +148,7 @@ impl App {
                 }
                 if secondary_button(
                     ui,
-                    "⏸  Disable without uninstalling",
+                    "Disable without uninstalling",
                     disable_block.is_none(),
                 )
                 .clicked()

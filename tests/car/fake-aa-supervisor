@@ -1,0 +1,4 @@
+#!/bin/sh
+mkdir -p /tmp/entry-aa-service
+while [ ! -f /tmp/entry-aa-service/STOP ]; do sleep 1; done
+rm -f /tmp/entry-aa-service/STOP
